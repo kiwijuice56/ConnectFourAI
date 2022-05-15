@@ -1,6 +1,6 @@
 public class EricConnectFourAgent extends Agent {
 
-    public static final int SIMULATION_DEPTH = 5;
+    public static final int SIMULATION_DEPTH = 7;
 
     /**
      * Constructs a new agent.
@@ -18,21 +18,23 @@ public class EricConnectFourAgent extends Agent {
         for (int colPlay = 0; colPlay < myGame.getColumnCount(); colPlay++) {
             if (myGame.getColumn(colPlay).getIsFull())
                 continue;
-            Connect4Game gCopy = new Connect4Game(myGame);
+            int dropRow = getDropRow(myGame, colPlay);
             if (iAmRed) {
-                gCopy.getColumn(colPlay).getSlot(getDropRow(gCopy, colPlay)).addRed();
-                int score = minimax(gCopy, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, false);
+                myGame.getColumn(colPlay).getSlot(dropRow).addRed();
+                int score = minimax(myGame, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, false);
                 if (score > bestScore) {
                     bestScore = score;
                     moveCol = colPlay;
                 }
+                myGame.getColumn(colPlay).getSlot(dropRow).clear();
             } else {
-                gCopy.getColumn(colPlay).getSlot(getDropRow(gCopy, colPlay)).addYellow();
-                int score = minimax(gCopy, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, true);
+                myGame.getColumn(colPlay).getSlot(dropRow).addYellow();
+                int score = minimax(myGame, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, true);
                 if (score < bestScore) {
                     bestScore = score;
                     moveCol = colPlay;
                 }
+                myGame.getColumn(colPlay).getSlot(dropRow).clear();
             }
 
         }
@@ -69,28 +71,34 @@ public class EricConnectFourAgent extends Agent {
         if (isMax) {
             int maxScore = Integer.MIN_VALUE;
             for (int colPlay = 0; colPlay < g.getColumnCount(); colPlay++) {
-                if (g.getColumn(colPlay).getIsFull())
-                    continue;
-                Connect4Game gCopy = new Connect4Game(g);
-                gCopy.getColumn(colPlay).getSlot(getDropRow(gCopy, colPlay)).addRed();
+                // Prevent bot from placing in full col
+                if (g.getColumn(colPlay).getIsFull()) continue;
 
-                int score = minimax(gCopy, alpha, beta, depth - 1, false);
+                // Place the test token
+                int dropRow = getDropRow(g, colPlay);
+                g.getColumn(colPlay).getSlot(dropRow).addRed();
+
+                // Update the highest possible score of this node and the entire game so far
+                int score = minimax(g, alpha, beta, depth - 1, false);
                 alpha = Math.max(score, alpha); maxScore = Math.max(score, maxScore);
-                if (beta <= alpha)
-                    break;
+
+                g.getColumn(colPlay).getSlot(dropRow).clear();
+                if (beta <= alpha) break;
             }
             return maxScore;
         } else {
             int minScore = Integer.MAX_VALUE;
             for (int colPlay = 0; colPlay < g.getColumnCount(); colPlay++) {
-                if (g.getColumn(colPlay).getIsFull())
-                    continue;
-                Connect4Game gCopy = new Connect4Game(g);
-                gCopy.getColumn(colPlay).getSlot(getDropRow(gCopy, colPlay)).addYellow();
-                int score = minimax(gCopy, alpha, beta, depth - 1, true);
+
+                if (g.getColumn(colPlay).getIsFull()) continue;
+                int dropRow = getDropRow(g, colPlay);
+                g.getColumn(colPlay).getSlot(dropRow).addYellow();
+
+                int score = minimax(g, alpha, beta, depth - 1, true);
                 beta = Math.min(score, beta); minScore = Math.min(score, minScore);
-                if (beta <= alpha)
-                    break;
+                g.getColumn(colPlay).getSlot(dropRow).clear();
+
+                if (beta <= alpha) break;
             }
             return minScore;
         }

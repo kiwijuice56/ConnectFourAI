@@ -1,6 +1,6 @@
 public class EricConnectFourAgent extends Agent {
-    private static final int[] colPriority = {3, 2, 4, 1, 5, 0, 6};
-    public static final int SIMULATION_DEPTH = 10;
+    private static final int[] colPriority = {3,2,4,1,5,0,6};
+    public static final int SIMULATION_DEPTH = 8;
 
     /**
      * Constructs a new agent.
@@ -32,16 +32,19 @@ public class EricConnectFourAgent extends Agent {
      * @param beta The lowest score that yellow (min) can achieve
      * @param depth The steps to simulate
      * @param isMax Whether the starting player is the maximizing (red) or minimizing (yellow)
-     * @return Returns the highest (red) or lowest (yellow) score possible given this board
+     * @return Returns an array of the best play and the highest (red) or lowest (yellow) score
+     * possible given this board
      */
     private int[] minimax(Connect4Game g, int alpha, int beta, int depth, boolean isMax) {
-        // Quit if the game is already winnable
         int checkScore = minimaxHeuristic(g);
+
+        // Quit if the game is already done
         if (checkScore == Integer.MAX_VALUE || checkScore == Integer.MIN_VALUE || depth == 0 || g.boardFull())
             return new int[] {-1, checkScore};
 
+        int bestPlay = -1;
         if (isMax) {
-            int maxScore = Integer.MIN_VALUE, bestPlay = -1;
+            int maxScore = Integer.MIN_VALUE;
             for (int col : colPriority) {
                 // Prevent bot from placing in full col
                 if (g.getColumn(col).getIsFull()) continue;
@@ -57,7 +60,7 @@ public class EricConnectFourAgent extends Agent {
                     bestPlay = col;
                     maxScore = score;
                 }
-
+                
                 g.getColumn(col).getSlot(dropRow).clear();
 
                 // Break if this path is not plausible
@@ -65,7 +68,7 @@ public class EricConnectFourAgent extends Agent {
             }
             return new int[] {bestPlay, maxScore};
         } else {
-            int minScore = Integer.MAX_VALUE, bestPlay = -1;
+            int minScore = Integer.MAX_VALUE;
             for (int col : colPriority) {
                 if (g.getColumn(col).getIsFull()) continue;
 
@@ -73,12 +76,12 @@ public class EricConnectFourAgent extends Agent {
                 g.getColumn(col).getSlot(dropRow).addYellow();
 
                 int score = minimax(g, alpha, beta, depth-1, true)[1];
+
                 beta = Math.min(score, beta);
                 if (score < minScore) {
                     bestPlay = col;
                     minScore = score;
                 }
-
                 g.getColumn(col).getSlot(dropRow).clear();
 
                 if (beta <= alpha) break;
@@ -95,7 +98,7 @@ public class EricConnectFourAgent extends Agent {
      *  indicate that the yellow player is favored while more positive values indicate that the red
      *  player is favored
      */
-    private int minimaxHeuristic(Connect4Game g) {
+    private static int minimaxHeuristic(Connect4Game g) {
         int score = 0;
         for (int initRow = 0; initRow < g.getRowCount(); initRow++) {
             for (int initCol = 0; initCol < g.getColumnCount(); initCol++) {
@@ -110,7 +113,7 @@ public class EricConnectFourAgent extends Agent {
                 }
                 if (redCnt == 4) return Integer.MAX_VALUE;
                 if (yelCnt == 4) return Integer.MIN_VALUE;
-                score += getScore(redCnt, yelCnt);
+                score += 3 * getScore(redCnt, yelCnt);
 
                 // Check all vertical groups
                 redCnt = 0; yelCnt = 0;
@@ -167,7 +170,7 @@ public class EricConnectFourAgent extends Agent {
      * @param yelCnt The amount of yellow tokens
      * @return The score for this group. Groups with mixed color tokens return a score of 0
      */
-    private int getScore(int redCnt, int yelCnt) {
+    private static int getScore(int redCnt, int yelCnt) {
         if (redCnt == 0 && yelCnt >= 2)
             return -yelCnt;
         if (yelCnt == 0 && redCnt >= 2)

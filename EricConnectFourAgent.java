@@ -1,6 +1,6 @@
 public class EricConnectFourAgent extends Agent {
-
-    public static final int SIMULATION_DEPTH = 7;
+    private static final int[] colPriority = {3, 2, 4, 1, 5, 0, 6};
+    public static final int SIMULATION_DEPTH = 10;
 
     /**
      * Constructs a new agent.
@@ -14,36 +14,11 @@ public class EricConnectFourAgent extends Agent {
 
     @Override
     public void move() {
-        int moveCol = -1, bestScore = iAmRed ? Integer.MIN_VALUE : Integer.MAX_VALUE;
-        for (int colPlay = 0; colPlay < myGame.getColumnCount(); colPlay++) {
-            if (myGame.getColumn(colPlay).getIsFull())
-                continue;
-            int dropRow = getDropRow(myGame, colPlay);
-            if (iAmRed) {
-                myGame.getColumn(colPlay).getSlot(dropRow).addRed();
-                int score = minimax(myGame, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, false);
-                if (score > bestScore) {
-                    bestScore = score;
-                    moveCol = colPlay;
-                }
-                myGame.getColumn(colPlay).getSlot(dropRow).clear();
-            } else {
-                myGame.getColumn(colPlay).getSlot(dropRow).addYellow();
-                int score = minimax(myGame, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, true);
-                if (score < bestScore) {
-                    bestScore = score;
-                    moveCol = colPlay;
-                }
-                myGame.getColumn(colPlay).getSlot(dropRow).clear();
-            }
-
-        }
-        if (moveCol == -1) {
-            for (int col = 0; col < myGame.getColumnCount(); col++) {
+        int moveCol = minimax(myGame, Integer.MIN_VALUE, Integer.MAX_VALUE, SIMULATION_DEPTH, iAmRed)[0];
+        if (moveCol == -1)
+            for (int col : colPriority)
                 if (!myGame.getColumn(col).getIsFull())
                     moveCol = col;
-            }
-        }
         if (iAmRed)
             myGame.getColumn(moveCol).getSlot(getDropRow(myGame, moveCol)).addRed();
         else
@@ -59,48 +34,56 @@ public class EricConnectFourAgent extends Agent {
      * @param isMax Whether the starting player is the maximizing (red) or minimizing (yellow)
      * @return Returns the highest (red) or lowest (yellow) score possible given this board
      */
-    private int minimax(Connect4Game g, int alpha, int beta, int depth, boolean isMax) {
+    private int[] minimax(Connect4Game g, int alpha, int beta, int depth, boolean isMax) {
         // Quit if the game is already winnable
         int checkScore = minimaxHeuristic(g);
-        if (checkScore == Integer.MIN_VALUE || checkScore == Integer.MAX_VALUE)
-            return checkScore;
-        // Quit at the final depth or a full board
-        if (depth == 0 || g.boardFull())
-            return checkScore;
+        if (checkScore == Integer.MAX_VALUE || checkScore == Integer.MIN_VALUE || depth == 0 || g.boardFull())
+            return new int[] {-1, checkScore};
 
         if (isMax) {
-            int maxScore = Integer.MIN_VALUE;
-            for (int colPlay = 0; colPlay < g.getColumnCount(); colPlay++) {
+            int maxScore = Integer.MIN_VALUE, bestPlay = -1;
+            for (int col : colPriority) {
                 // Prevent bot from placing in full col
-                if (g.getColumn(colPlay).getIsFull()) continue;
+                if (g.getColumn(col).getIsFull()) continue;
 
                 // Place the test token
-                int dropRow = getDropRow(g, colPlay);
-                g.getColumn(colPlay).getSlot(dropRow).addRed();
+                int dropRow = getDropRow(g, col);
+                g.getColumn(col).getSlot(dropRow).addRed();
 
-                // Update the highest possible score of this node and the entire game so far
-                int score = minimax(g, alpha, beta, depth - 1, false);
-                alpha = Math.max(score, alpha); maxScore = Math.max(score, maxScore);
+                // Update the highest possible score of this node and the entire tree so far
+                int score = minimax(g, alpha, beta, depth-1, false)[1];
+                alpha = Math.max(score, alpha);
+                if (score > maxScore) {
+                    bestPlay = col;
+                    maxScore = score;
+                }
 
-                g.getColumn(colPlay).getSlot(dropRow).clear();
+                g.getColumn(col).getSlot(dropRow).clear();
+
+                // Break if this path is not plausible
                 if (beta <= alpha) break;
             }
-            return maxScore;
+            return new int[] {bestPlay, maxScore};
         } else {
-            int minScore = Integer.MAX_VALUE;
-            for (int colPlay = 0; colPlay < g.getColumnCount(); colPlay++) {
+            int minScore = Integer.MAX_VALUE, bestPlay = -1;
+            for (int col : colPriority) {
+                if (g.getColumn(col).getIsFull()) continue;
 
-                if (g.getColumn(colPlay).getIsFull()) continue;
-                int dropRow = getDropRow(g, colPlay);
-                g.getColumn(colPlay).getSlot(dropRow).addYellow();
+                int dropRow = getDropRow(g, col);
+                g.getColumn(col).getSlot(dropRow).addYellow();
 
-                int score = minimax(g, alpha, beta, depth - 1, true);
-                beta = Math.min(score, beta); minScore = Math.min(score, minScore);
-                g.getColumn(colPlay).getSlot(dropRow).clear();
+                int score = minimax(g, alpha, beta, depth-1, true)[1];
+                beta = Math.min(score, beta);
+                if (score < minScore) {
+                    bestPlay = col;
+                    minScore = score;
+                }
+
+                g.getColumn(col).getSlot(dropRow).clear();
 
                 if (beta <= alpha) break;
             }
-            return minScore;
+            return new int[] {bestPlay, minScore};
         }
     }
 
@@ -198,7 +181,7 @@ public class EricConnectFourAgent extends Agent {
      * @param col The column the token is being dropped in
      * @return The row the token will be placed in
      */
-    private int getDropRow(Connect4Game g, int col) {
+    public static int getDropRow(Connect4Game g, int col) {
         for (int row = 0; row < g.getRowCount(); row++) {
             if (g.getColumn(col).getSlot(row).getIsFilled())
                 return row-1;

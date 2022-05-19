@@ -1,13 +1,8 @@
 public class EricConnectFourAgent extends Agent {
-    private static final int[] colPriority = {3,2,4,1,5,0,6};
-    public static final int SIMULATION_DEPTH = 8;
+    public static final int SIMULATION_DEPTH = 10; // The amount of levels of moves simulated per real move
+    private static final int[] colPriority = {3, 2, 4, 1, 5, 0, 6}; // Order to simulate column placement
+    public static final int RED_WIN = 1000, YEL_WIN = -1000; // The values that indicate winning for each player
 
-    /**
-     * Constructs a new agent.
-     *
-     * @param game   the game for the agent to play.
-     * @param iAmRed whether the agent is the red player.
-     */
     public EricConnectFourAgent(Connect4Game game, boolean iAmRed) {
         super(game, iAmRed);
     }
@@ -19,10 +14,7 @@ public class EricConnectFourAgent extends Agent {
             for (int col : colPriority)
                 if (!myGame.getColumn(col).getIsFull())
                     moveCol = col;
-        if (iAmRed)
-            myGame.getColumn(moveCol).getSlot(getDropRow(myGame, moveCol)).addRed();
-        else
-            myGame.getColumn(moveCol).getSlot(getDropRow(myGame, moveCol)).addYellow();
+        dropToken(myGame, moveCol, iAmRed);
     }
 
     /**
@@ -35,59 +27,40 @@ public class EricConnectFourAgent extends Agent {
      * @return Returns an array of the best play and the highest (red) or lowest (yellow) score
      * possible given this board
      */
-    private int[] minimax(Connect4Game g, int alpha, int beta, int depth, boolean isMax) {
+    private static int[] minimax(Connect4Game g, int alpha, int beta, int depth, boolean isMax) {
         int checkScore = minimaxHeuristic(g);
 
-        // Quit if the game is already done
-        if (checkScore == Integer.MAX_VALUE || checkScore == Integer.MIN_VALUE || depth == 0 || g.boardFull())
-            return new int[] {-1, checkScore};
+        // Quit if the game is already completed
+        if (depth == 0 || g.boardFull() || checkScore == RED_WIN || checkScore == YEL_WIN)
+            return new int[] {-1, checkScore + (!isMax ? depth : -depth)};
 
-        int bestPlay = -1;
-        if (isMax) {
-            int maxScore = Integer.MIN_VALUE;
-            for (int col : colPriority) {
-                // Prevent bot from placing in full col
-                if (g.getColumn(col).getIsFull()) continue;
+        int bestPlay = -1, bestScore = isMax ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+        for (int col : colPriority) {
+            if (g.getColumn(col).getIsFull()) continue;
 
-                // Place the test token
-                int dropRow = getDropRow(g, col);
-                g.getColumn(col).getSlot(dropRow).addRed();
+            // Place the test token and continue the simulation tree
+            int slot = dropToken(g, col, isMax);
+            int score = minimax(g, alpha, beta, depth-1, !isMax)[1];
 
-                // Update the highest possible score of this node and the entire tree so far
-                int score = minimax(g, alpha, beta, depth-1, false)[1];
+            // If two best moves are symmetric, use randomness to increase possible outcomes against
+            // nonrandom opponents
+            if (score > bestScore && isMax || score < bestScore && !isMax ||
+                    score == bestScore && col == g.getColumnCount()-1-bestPlay && Math.random() > 0.5) {
+                bestPlay = col;
+                bestScore = score;
+            }
+            if (isMax)
                 alpha = Math.max(score, alpha);
-                if (score > maxScore) {
-                    bestPlay = col;
-                    maxScore = score;
-                }
-                
-                g.getColumn(col).getSlot(dropRow).clear();
-
-                // Break if this path is not plausible
-                if (beta <= alpha) break;
-            }
-            return new int[] {bestPlay, maxScore};
-        } else {
-            int minScore = Integer.MAX_VALUE;
-            for (int col : colPriority) {
-                if (g.getColumn(col).getIsFull()) continue;
-
-                int dropRow = getDropRow(g, col);
-                g.getColumn(col).getSlot(dropRow).addYellow();
-
-                int score = minimax(g, alpha, beta, depth-1, true)[1];
-
+            else
                 beta = Math.min(score, beta);
-                if (score < minScore) {
-                    bestPlay = col;
-                    minScore = score;
-                }
-                g.getColumn(col).getSlot(dropRow).clear();
 
-                if (beta <= alpha) break;
-            }
-            return new int[] {bestPlay, minScore};
+            g.getColumn(col).getSlot(slot).clear();
+
+            // Break if this path is not plausible
+            if (beta <= alpha)
+                break;
         }
+        return new int[] {bestPlay, bestScore};
     }
 
     /**
@@ -111,9 +84,9 @@ public class EricConnectFourAgent extends Agent {
                     if (!s.getIsRed() && s.getIsFilled())
                         yelCnt++;
                 }
-                if (redCnt == 4) return Integer.MAX_VALUE;
-                if (yelCnt == 4) return Integer.MIN_VALUE;
-                score += 3 * getScore(redCnt, yelCnt);
+                if (redCnt == 4) return RED_WIN;
+                if (yelCnt == 4) return YEL_WIN;
+                score += 3 * getScore(redCnt, yelCnt); // A small priority in row stimulates center column pivoting
 
                 // Check all vertical groups
                 redCnt = 0; yelCnt = 0;
@@ -124,8 +97,8 @@ public class EricConnectFourAgent extends Agent {
                     if (!s.getIsRed() && s.getIsFilled())
                         yelCnt++;
                 }
-                if (redCnt == 4) return Integer.MAX_VALUE;
-                if (yelCnt == 4) return Integer.MIN_VALUE;
+                if (redCnt == 4) return RED_WIN;
+                if (yelCnt == 4) return YEL_WIN;
                 score += getScore(redCnt, yelCnt);
 
                 // Check the forward diagonal groups
@@ -140,8 +113,8 @@ public class EricConnectFourAgent extends Agent {
                     if (!s.getIsRed() && s.getIsFilled())
                         yelCnt++;
                 }
-                if (redCnt == 4) return Integer.MAX_VALUE;
-                if (yelCnt == 4) return Integer.MIN_VALUE;
+                if (redCnt == 4) return RED_WIN;
+                if (yelCnt == 4) return YEL_WIN;
                 score += getScore(redCnt, yelCnt);
 
                 // Check the backward diagonal groups
@@ -156,8 +129,8 @@ public class EricConnectFourAgent extends Agent {
                     if (!s.getIsRed() && s.getIsFilled())
                         yelCnt++;
                 }
-                if (redCnt == 4) return Integer.MAX_VALUE;
-                if (yelCnt == 4) return Integer.MIN_VALUE;
+                if (redCnt == 4) return RED_WIN;
+                if (yelCnt == 4) return YEL_WIN;
                 score += getScore(redCnt, yelCnt);
             }
         }
@@ -179,17 +152,25 @@ public class EricConnectFourAgent extends Agent {
     }
 
     /**
-     * Return the lowest empty row in a column
+     * Places a token in the next available spot in a row, then returns the row index
      * @param g A Connect4Game board
-     * @param col The column the token is being dropped in
-     * @return The row the token will be placed in
+     * @param col The column to place a token in
+     * @param isRed Whether this player is red
+     * @return The row index that the token was placed in
      */
-    public static int getDropRow(Connect4Game g, int col) {
+    public static int dropToken(Connect4Game g, int col, boolean isRed) {
+        int dropRow = g.getRowCount()-1;
         for (int row = 0; row < g.getRowCount(); row++) {
-            if (g.getColumn(col).getSlot(row).getIsFilled())
-                return row-1;
+            if (g.getColumn(col).getSlot(row).getIsFilled()) {
+                dropRow = row-1;
+                break;
+            }
         }
-        return g.getRowCount()-1;
+        if (isRed)
+            g.getColumn(col).getSlot(dropRow).addRed();
+        else
+            g.getColumn(col).getSlot(dropRow).addYellow();
+        return dropRow;
     }
 
     @Override
